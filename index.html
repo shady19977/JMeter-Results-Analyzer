@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JMeter JTL Analyzer - Enhanced with Network Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        
+        .upload-section {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #475569;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #10b981;
+            background: #334155;
+        }
+        
+        .upload-section input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        .file-name {
+            color: #10b981;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        
+        .progress-container {
+            width: 100%;
+            background: #334155;
+            border-radius: 8px;
+            margin-top: 15px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .progress-bar {
+            height: 30px;
+            background: linear-gradient(90deg, #10b981, #059669);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-card.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .stat-card.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .stat-card.info {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        
+        .stat-card.network {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .stat-unit {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            position: relative;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #334155;
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .chart-subtitle {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        
+        .chart-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .chart-btn {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .chart-btn:hover {
+            background: #475569;
+            border-color: #64748b;
+        }
+        
+        .chart-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #334155;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .details-section {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .details-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .percentile-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .percentile-table th,
+        .percentile-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        
+        .percentile-table th {
+            background: #334155;
+            color: #10b981;
+        }
+        
+        .ai-insights {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+        
+        .ai-insights h2 {
+            color: #10b981;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .insight-section {
+            margin-bottom: 25px;
+        }
+        
+        .insight-section h3 {
+            color: #60a5fa;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            border-left: 4px solid #10b981;
+            padding-left: 12px;
+        }
+        
+        .insight-section p, .insight-section ul {
+            color: #cbd5e1;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        
+        .insight-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .insight-section li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .insight-section li:before {
+            content: "▸";
+            position: absolute;
+            left: 5px;
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .status-excellent {
+            background: #059669;
+            color: white;
+        }
+        
+        .status-good {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-fair {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .status-poor {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            background: #1e293b;
+            padding: 5px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #334155;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .tab:hover {
+            background: #475569;
+            color: #e2e8f0;
+        }
+        
+        .tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .no-data {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 250px;
+            color: #94a3b8;
+        }
+        
+        .no-data-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+        
+        canvas {
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 JMeter Performance Analyzer Pro By Shady Gomaa</h1>
+            <p>Advanced Performance Testing with Network Analysis & Latency Breakdown</p>
+        </div>
+
+        <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+            <div>Click to upload .jtl or .csv file (supports large files up to 100MB+)</div>
+            <input type="file" id="fileInput" accept=".jtl,.csv">
+            <div id="fileName" class="file-name hidden"></div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+        </div>
+
+        <div id="results" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-value" id="totalRequests">0</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Success Rate</div>
+                    <div class="stat-value" id="successRate">0<span class="stat-unit">%</span></div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Avg Response Time</div>
+                    <div class="stat-value" id="avgResponse">0<span class="stat-unit">ms</span></div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">Throughput</div>
+                    <div class="stat-value" id="throughput">0<span class="stat-unit">req/s</span></div>
+                </div>
+                <div class="stat-card network">
+                    <div class="stat-label">Avg Latency</div>
+                    <div class="stat-value" id="avgLatency">0<span class="stat-unit">ms</span></div>
+                </div>
+                <div class="stat-card network">
+                    <div class="stat-label">Avg Connect Time</div>
+                    <div class="stat-value" id="avgConnect">0<span class="stat-unit">ms</span></div>
+                </div>
+                <div class="stat-card info">
+                    <div class="stat-label">Error Rate</div>
+                    <div class="stat-value" id="errorRate">0<span class="stat-unit">%</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Threads</div>
+                    <div class="stat-value" id="activeThreads">0</div>
+                </div>
+            </div>
+
+            <div id="aiInsights" class="ai-insights">
+                <h2>🤖 AI-Powered Performance Analysis</h2>
+                <div id="insightsContent"></div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('overview')">📈 Overview</button>
+                <button class="tab" onclick="switchTab('network')">🌐 Network Analysis</button>
+                <button class="tab" onclick="switchTab('response')">⚡ Response Times</button>
+                <button class="tab" onclick="switchTab('throughput')">📊 Throughput</button>
+                <button class="tab" onclick="switchTab('errors')">⚠️ Errors</button>
+            </div>
+
+            <div id="overview-tab" class="tab-content active">
+                <div class="dashboard-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Response Time Percentiles</div>
+                                <div class="chart-subtitle">Distribution across percentiles</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="percentileChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Response Time Timeline</div>
+                                <div class="chart-subtitle">Real-time response pattern</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="timelineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Throughput Over Time</div>
+                                <div class="chart-subtitle">Requests per second</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="throughputChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Error Rate & Active Threads</div>
+                                <div class="chart-subtitle">Error pattern and concurrent users</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="errorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="network-tab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Network Latency Breakdown</div>
+                                <div class="chart-subtitle">DNS, Connect, and Response time components</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="networkBreakdownChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Latency Over Time</div>
+                                <div class="chart-subtitle">Network latency timeline</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="latencyTimelineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Connection Time Analysis</div>
+                                <div class="chart-subtitle">Time to establish connections</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="connectTimeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Bytes Sent vs Received</div>
+                                <div class="chart-subtitle">Network traffic analysis</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="bytesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Network Latency Distribution</div>
+                                <div class="chart-subtitle">Frequency of different latency ranges</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="latencyDistributionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Response vs Latency Correlation</div>
+                                <div class="chart-subtitle">Relationship between response time and latency</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="responseVsLatencyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-section">
+                    <div class="details-title">Network Performance Metrics</div>
+                    <table class="percentile-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Min (ms)</th>
+                                <th>Avg (ms)</th>
+                                <th>P95 (ms)</th>
+                                <th>Max (ms)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="networkMetricsTable">
+                            <tr><td colspan="5" style="text-align: center; padding: 20px;">Loading network metrics...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="response-tab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Response Time Distribution</div>
+                                <div class="chart-subtitle">Histogram of response times</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Response Time Heatmap</div>
+                                <div class="chart-subtitle">Time vs Response Time intensity</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="heatmapChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="throughput-tab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Throughput Distribution</div>
+                                <div class="chart-subtitle">Requests per second over time</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="throughputDistributionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Request Rate by Minute</div>
+                                <div class="chart-subtitle">Requests per minute</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="requestsPerMinuteChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errors-tab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Error Timeline</div>
+                                <div class="chart-subtitle">When errors occurred during test</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="errorTimelineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Error Types Distribution</div>
+                                <div class="chart-subtitle">Breakdown of different error types</div>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="errorTypesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-section">
+                    <div class="details-title">⚠️ Error Analysis</div>
+                    <div id="errorDetailsContent">
+                        <div class="no-data">
+                            <div class="no-data-icon">⚠️</div>
+                            <div>No error details available</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="details-title">Detailed Percentile Analysis</div>
+                <table class="percentile-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value (ms)</th>
+                            <th>SLA Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="percentileTable">
+                        <tr><td colspan="3" style="text-align: center; padding: 20px;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let testData = [];
+        let chartData = null;
+        let networkMetrics = null;
+
+        // Stream processing for large files
+        function processLargeFile(file) {
+            return new Promise((resolve, reject) => {
+                const chunkSize = 1024 * 1024; // 1MB chunks
+                let offset = 0;
+                let textBuffer = '';
+                let headers = null;
+                const processedData = [];
+                const reader = new FileReader();
+                
+                const progressBar = document.getElementById('progressBar');
+                const progressContainer = document.getElementById('progressContainer');
+                progressContainer.style.display = 'block';
+
+                reader.onload = function(e) {
+                    textBuffer += e.target.result;
+                    const lines = textBuffer.split('\n');
+                    
+                    // Keep last incomplete line in buffer
+                    textBuffer = lines.pop() || '';
+                    
+                    lines.forEach((line, index) => {
+                        if (!line.trim()) return;
+                        
+                        if (!headers && offset === 0 && index === 0) {
+                            headers = line.split(',').map(h => h.trim());
+                            return;
+                        }
+                        
+                        if (headers) {
+                            const values = line.split(',');
+                            const record = {};
+                            
+                            headers.forEach((header, idx) => {
+                                record[header] = values[idx]?.trim() || '';
+                            });
+                            
+                            // Parse with optimized field access
+                            record.elapsed = parseInt(record.elapsed || record.Latency || 0) || 0;
+                            record.timestamp = parseInt(record.timeStamp || record.timestamp || Date.now());
+                            record.Latency = parseInt(record.Latency || 0) || 0;
+                            record.Connect = parseInt(record.Connect || 0) || 0;
+                            record.bytes = parseInt(record.bytes || 0) || 0;
+                            record.sentBytes = parseInt(record.sentBytes || 0) || 0;
+                            record.threadCount = parseInt(record.allThreads || record.grpThreads || 1);
+                            record.success = (record.success || 'true').toLowerCase() === 'true';
+                            record.responseCode = record.responseCode || '';
+                            record.responseMessage = record.responseMessage || '';
+                            
+                            processedData.push(record);
+                        }
+                    });
+                    
+                    // Update progress
+                    const progress = Math.min(100, ((offset + chunkSize) / file.size) * 100);
+                    progressBar.style.width = progress + '%';
+                    progressBar.textContent = Math.round(progress) + '%';
+                    
+                    offset += chunkSize;
+                    
+                    if (offset < file.size) {
+                        readNextChunk();
+                    } else {
+                        // Process remaining buffer
+                        if (textBuffer.trim() && headers) {
+                            const values = textBuffer.split(',');
+                            const record = {};
+                            headers.forEach((header, idx) => {
+                                record[header] = values[idx]?.trim() || '';
+                            });
+                            record.elapsed = parseInt(record.elapsed || record.Latency || 0) || 0;
+                            record.timestamp = parseInt(record.timeStamp || record.timestamp || Date.now());
+                            record.Latency = parseInt(record.Latency || 0) || 0;
+                            record.Connect = parseInt(record.Connect || 0) || 0;
+                            record.bytes = parseInt(record.bytes || 0) || 0;
+                            record.sentBytes = parseInt(record.sentBytes || 0) || 0;
+                            record.threadCount = parseInt(record.allThreads || record.grpThreads || 1);
+                            record.success = (record.success || 'true').toLowerCase() === 'true';
+                            record.responseCode = record.responseCode || '';
+                            record.responseMessage = record.responseMessage || '';
+                            processedData.push(record);
+                        }
+                        
+                        progressBar.style.width = '100%';
+                        progressBar.textContent = '100%';
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                            resolve(processedData);
+                        }, 500);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject(new Error('Error reading file'));
+                };
+                
+                function readNextChunk() {
+                    const blob = file.slice(offset, offset + chunkSize);
+                    reader.readAsText(blob);
+                }
+                
+                readNextChunk();
+            });
+        }
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = `✓ Processing: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            document.getElementById('fileName').classList.remove('hidden');
+
+            try {
+                testData = await processLargeFile(file);
+                analyzeData(testData);
+            } catch (error) {
+                alert('Error processing file: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            if (tabName === 'network' && testData.length > 0) {
+                initializeNetworkTab();
+            }
+        }
+
+        function analyzeData(data) {
+            if (!data || data.length === 0) {
+                alert('No valid data found in file');
+                return;
+            }
+
+            // Calculate basic metrics with optimized processing for large datasets
+            const responseTimes = [];
+            const latencies = [];
+            const connectTimes = [];
+            let successCount = 0;
+            let sumResponse = 0;
+            let sumLatency = 0;
+            let sumConnect = 0;
+            
+            // Single pass through data - avoid multiple iterations
+            for (let i = 0; i < data.length; i++) {
+                const record = data[i];
+                
+                if (record.elapsed > 0) {
+                    responseTimes.push(record.elapsed);
+                    sumResponse += record.elapsed;
+                }
+                if (record.Latency > 0) {
+                    latencies.push(record.Latency);
+                    sumLatency += record.Latency;
+                }
+                if (record.Connect > 0) {
+                    connectTimes.push(record.Connect);
+                    sumConnect += record.Connect;
+                }
+                if (record.success) successCount++;
+            }
+            
+            const failureCount = data.length - successCount;
+            const avgResponse = responseTimes.length > 0 ? sumResponse / responseTimes.length : 0;
+            const avgLatency = latencies.length > 0 ? sumLatency / latencies.length : 0;
+            const avgConnect = connectTimes.length > 0 ? sumConnect / connectTimes.length : 0;
+            
+            // Optimized percentile calculation using selection algorithm
+            function quickSelect(arr, k) {
+                if (arr.length === 0) return 0;
+                if (arr.length === 1) return arr[0];
+                
+                const pivot = arr[Math.floor(arr.length / 2)];
+                const left = arr.filter(x => x < pivot);
+                const right = arr.filter(x => x > pivot);
+                const middle = arr.filter(x => x === pivot);
+                
+                if (k < left.length) {
+                    return quickSelect(left, k);
+                } else if (k < left.length + middle.length) {
+                    return pivot;
+                } else {
+                    return quickSelect(right, k - left.length - middle.length);
+                }
+            }
+            
+            const percentiles = {
+                min: responseTimes.length > 0 ? Math.min(...responseTimes.slice(0, 1000)) : 0,
+                p50: quickSelect([...responseTimes], Math.floor(responseTimes.length * 0.5)),
+                p75: quickSelect([...responseTimes], Math.floor(responseTimes.length * 0.75)),
+                p90: quickSelect([...responseTimes], Math.floor(responseTimes.length * 0.9)),
+                p95: quickSelect([...responseTimes], Math.floor(responseTimes.length * 0.95)),
+                p99: quickSelect([...responseTimes], Math.floor(responseTimes.length * 0.99)),
+                max: responseTimes.length > 0 ? Math.max(...responseTimes.slice(-1000)) : 0
+            };
+
+            // Network metrics using optimized selection
+            const sortedLatency = latencies.length > 10000 ? latencies.slice(0, 10000).sort((a, b) => a - b) : latencies.sort((a, b) => a - b);
+            const sortedConnect = connectTimes.length > 10000 ? connectTimes.slice(0, 10000).sort((a, b) => a - b) : connectTimes.sort((a, b) => a - b);
+            
+            networkMetrics = {
+                latency: {
+                    min: sortedLatency[0] || 0,
+                    avg: avgLatency,
+                    p95: sortedLatency[Math.floor(sortedLatency.length * 0.95)] || 0,
+                    max: sortedLatency[sortedLatency.length - 1] || 0
+                },
+                connect: {
+                    min: sortedConnect[0] || 0,
+                    avg: avgConnect,
+                    p95: sortedConnect[Math.floor(sortedConnect.length * 0.95)] || 0,
+                    max: sortedConnect[sortedConnect.length - 1] || 0
+                }
+            };
+
+            // Calculate test duration and throughput
+            const startTime = data[0].timestamp;
+            const endTime = data[data.length - 1].timestamp;
+            const testDuration = Math.max(1, (endTime - startTime) / 1000);
+            
+            // Create time buckets (5 second intervals) - optimized for large datasets
+            const bucketSize = 5000;
+            const numBuckets = Math.ceil((endTime - startTime) / bucketSize);
+            const timelineBuckets = new Array(numBuckets);
+            
+            // Initialize buckets
+            for (let i = 0; i < numBuckets; i++) {
+                timelineBuckets[i] = {
+                    responseTimes: [],
+                    latencies: [],
+                    connectTimes: [],
+                    errors: 0,
+                    count: 0,
+                    bytes: 0,
+                    sentBytes: 0,
+                    threads: []
+                };
+            }
+            
+            // Single pass to fill buckets
+            for (let i = 0; i < data.length; i++) {
+                const record = data[i];
+                const elapsedFromStart = record.timestamp - startTime;
+                const bucketIndex = Math.floor(elapsedFromStart / bucketSize);
+                
+                if (bucketIndex >= 0 && bucketIndex < numBuckets) {
+                    const bucket = timelineBuckets[bucketIndex];
+                    bucket.responseTimes.push(record.elapsed);
+                    bucket.latencies.push(record.Latency);
+                    bucket.connectTimes.push(record.Connect);
+                    bucket.count++;
+                    if (!record.success) bucket.errors++;
+                    bucket.bytes += record.bytes;
+                    bucket.sentBytes += record.sentBytes;
+                    bucket.threads.push(record.threadCount);
+                }
+            }
+
+            // Calculate bucket metrics - avoid reduce on large arrays
+            const timelineData = [];
+            for (let i = 0; i < timelineBuckets.length; i++) {
+                const bucket = timelineBuckets[i];
+                if (bucket.count === 0) continue;
+                
+                let sumRT = 0, sumLat = 0, sumConn = 0, sumThreads = 0;
+                for (let j = 0; j < bucket.responseTimes.length; j++) {
+                    sumRT += bucket.responseTimes[j];
+                }
+                for (let j = 0; j < bucket.latencies.length; j++) {
+                    sumLat += bucket.latencies[j];
+                }
+                for (let j = 0; j < bucket.connectTimes.length; j++) {
+                    sumConn += bucket.connectTimes[j];
+                }
+                for (let j = 0; j < bucket.threads.length; j++) {
+                    sumThreads += bucket.threads[j];
+                }
+                
+                const avgRT = bucket.responseTimes.length > 0 ? sumRT / bucket.responseTimes.length : 0;
+                const avgLat = bucket.latencies.length > 0 ? sumLat / bucket.latencies.length : 0;
+                const avgConn = bucket.connectTimes.length > 0 ? sumConn / bucket.connectTimes.length : 0;
+                const throughput = bucket.count / (bucketSize / 1000);
+                const errorRate = (bucket.errors / bucket.count) * 100;
+                const avgThreads = bucket.threads.length > 0 ? sumThreads / bucket.threads.length : 0;
+                
+                timelineData.push({
+                    avg: Math.round(avgRT),
+                    avgLatency: Math.round(avgLat),
+                    avgConnect: Math.round(avgConn),
+                    throughput: parseFloat(throughput.toFixed(2)),
+                    errorRate: parseFloat(errorRate.toFixed(2)),
+                    threads: parseFloat(avgThreads.toFixed(1)),
+                    count: bucket.count,
+                    errors: bucket.errors,
+                    bytes: bucket.bytes,
+                    sentBytes: bucket.sentBytes
+                });
+            }
+
+            const throughput = data.length / testDuration;
+            const successRate = (successCount / data.length) * 100;
+            const errorRate = (failureCount / data.length) * 100;
+
+            chartData = {
+                percentiles,
+                timelineData,
+                networkMetrics,
+                testDuration
+            };
+
+            // Update UI
+            document.getElementById('totalRequests').textContent = data.length.toLocaleString();
+            document.getElementById('successRate').innerHTML = `${successRate.toFixed(2)}<span class="stat-unit">%</span>`;
+            document.getElementById('avgResponse').innerHTML = `${Math.round(avgResponse)}<span class="stat-unit">ms</span>`;
+            document.getElementById('throughput').innerHTML = `${throughput.toFixed(2)}<span class="stat-unit">req/s</span>`;
+            document.getElementById('avgLatency').innerHTML = `${Math.round(avgLatency)}<span class="stat-unit">ms</span>`;
+            document.getElementById('avgConnect').innerHTML = `${Math.round(avgConnect)}<span class="stat-unit">ms</span>`;
+            document.getElementById('errorRate').innerHTML = `${errorRate.toFixed(2)}<span class="stat-unit">%</span>`;
+            
+            // Find max threads efficiently
+            let maxThreads = 0;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].threadCount > maxThreads) maxThreads = data[i].threadCount;
+            }
+            document.getElementById('activeThreads').textContent = maxThreads;
+
+            updatePercentileTable(percentiles);
+            generateInsights({
+                totalRequests: data.length,
+                successRate,
+                failureCount,
+                avg: Math.round(avgResponse),
+                avgLatency: Math.round(avgLatency),
+                avgConnect: Math.round(avgConnect),
+                percentiles,
+                throughput: parseFloat(throughput.toFixed(2)),
+                errorRate,
+                testDuration
+            });
+
+            analyzeErrors(data);
+            document.getElementById('results').classList.remove('hidden');
+            createAllCharts();
+        }
+
+        function analyzeErrors(data) {
+            const errors = {};
+            let totalErrors = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                const d = data[i];
+                if (!d.success) {
+                    totalErrors++;
+                    const key = `${d.responseCode}: ${d.responseMessage.substring(0, 100)}`;
+                    errors[key] = (errors[key] || 0) + 1;
+                }
+            }
+            
+            const errorDetailsDiv = document.getElementById('errorDetailsContent');
+            if (totalErrors === 0) {
+                errorDetailsDiv.innerHTML = '<div class="no-data"><div class="no-data-icon">✓</div><div>No errors detected</div></div>';
+                return;
+            }
+            
+            errorDetailsDiv.innerHTML = '';
+            const sortedErrors = Object.entries(errors).sort((a, b) => b[1] - a[1]);
+            
+            for (let i = 0; i < sortedErrors.length; i++) {
+                const [err, count] = sortedErrors[i];
+                const div = document.createElement('div');
+                div.style.cssText = 'background: #991b1b; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ef4444;';
+                div.innerHTML = `<strong>${err}</strong><br><span style="color: #fca5a5;">Count: ${count} (${((count / data.length) * 100).toFixed(2)}%)</span>`;
+                errorDetailsDiv.appendChild(div);
+            }
+        }
+
+        function createErrorTimelineChart() {
+            if (!chartData || !chartData.timelineData) return;
+            
+            const ctx = document.getElementById('errorTimelineChart').getContext('2d');
+            if (charts.errorTimeline) charts.errorTimeline.destroy();
+            
+            const errorCounts = chartData.timelineData.map(d => d.errors);
+            const hasErrors = errorCounts.some(count => count > 0);
+            
+            if (!hasErrors) {
+                ctx.canvas.style.display = 'none';
+                const parent = ctx.canvas.parentElement;
+                let noDataDiv = parent.querySelector('.no-data');
+                if (!noDataDiv) {
+                    noDataDiv = document.createElement('div');
+                    noDataDiv.className = 'no-data';
+                    noDataDiv.innerHTML = '<div class="no-data-icon">✓</div><div>No errors detected during test</div>';
+                    parent.appendChild(noDataDiv);
+                }
+                return;
+            }
+            
+            ctx.canvas.style.display = 'block';
+            const parent = ctx.canvas.parentElement;
+            const noDataDiv = parent.querySelector('.no-data');
+            if (noDataDiv) noDataDiv.remove();
+            
+            charts.errorTimeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: errorCounts.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Errors',
+                        data: errorCounts,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#ef4444'
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createErrorTypesChart() {
+            const ctx = document.getElementById('errorTypesChart').getContext('2d');
+            if (charts.errorTypes) charts.errorTypes.destroy();
+            
+            const errorTypes = {};
+            let totalErrors = 0;
+            
+            for (let i = 0; i < testData.length; i++) {
+                const d = testData[i];
+                if (!d.success) {
+                    totalErrors++;
+                    const code = d.responseCode || 'Unknown';
+                    errorTypes[code] = (errorTypes[code] || 0) + 1;
+                }
+            }
+            
+            if (totalErrors === 0) {
+                ctx.canvas.style.display = 'none';
+                const parent = ctx.canvas.parentElement;
+                let noDataDiv = parent.querySelector('.no-data');
+                if (!noDataDiv) {
+                    noDataDiv = document.createElement('div');
+                    noDataDiv.className = 'no-data';
+                    noDataDiv.innerHTML = '<div class="no-data-icon">✓</div><div>No errors detected during test</div>';
+                    parent.appendChild(noDataDiv);
+                }
+                return;
+            }
+            
+            ctx.canvas.style.display = 'block';
+            const parent = ctx.canvas.parentElement;
+            const noDataDiv = parent.querySelector('.no-data');
+            if (noDataDiv) noDataDiv.remove();
+            
+            const sortedErrors = Object.entries(errorTypes)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            const labels = sortedErrors.map(e => e[0].substring(0, 30));
+            const counts = sortedErrors.map(e => e[1]);
+            
+            charts.errorTypes = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            '#ef4444', '#f97316', '#f59e0b', '#eab308',
+                            '#84cc16', '#10b981', '#14b8a6', '#0ea5e9',
+                            '#3b82f6', '#8b5cf6'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { size: 11 },
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createAllCharts() {
+            Object.values(charts).forEach(chart => chart && chart.destroy());
+            charts = {};
+            
+            createPercentileChart();
+            createTimelineChart();
+            createThroughputChart();
+            createErrorChart();
+            createDistributionChart();
+            createHeatmapChart();
+            createThroughputDistributionChart();
+            createRequestsPerMinuteChart();
+            createErrorTimelineChart();
+            createErrorTypesChart();
+        }
+
+        function initializeNetworkTab() {
+            createNetworkBreakdownChart();
+            createLatencyTimelineChart();
+            createConnectTimeChart();
+            createBytesChart();
+            createLatencyDistributionChart();
+            createResponseVsLatencyChart();
+            updateNetworkMetricsTable();
+        }
+
+        function createPercentileChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('percentileChart').getContext('2d');
+            charts.percentile = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['MIN', 'P50', 'P75', 'P90', 'P95', 'P99', 'MAX'],
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: Object.values(chartData.percentiles),
+                        backgroundColor: ['#10b981', '#3b82f6', '#3b82f6', '#f59e0b', '#ef4444', '#ef4444', '#dc2626']
+                    }]
+                },
+                options: getChartOptions()
+            });
+        }
+
+        function createTimelineChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            charts.timeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Response Time',
+                        data: chartData.timelineData.map(d => d.avg),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createThroughputChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('throughputChart').getContext('2d');
+            charts.throughput = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Throughput',
+                        data: chartData.timelineData.map(d => d.throughput),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createErrorChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('errorChart').getContext('2d');
+            charts.error = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Error Rate',
+                        data: chartData.timelineData.map(d => d.errorRate),
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y',
+                        pointRadius: 0
+                    }, {
+                        label: 'Active Threads',
+                        data: chartData.timelineData.map(d => d.threads),
+                        borderColor: '#3b82f6',
+                        tension: 0.4,
+                        yAxisID: 'y1',
+                        pointRadius: 0
+                    }]
+                },
+                options: getChartOptions(true, true)
+            });
+        }
+
+        function createDistributionChart() {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            
+            // Sample data for distribution to avoid memory issues
+            const sampleSize = Math.min(10000, testData.length);
+            const step = Math.ceil(testData.length / sampleSize);
+            const sampledRT = [];
+            
+            for (let i = 0; i < testData.length; i += step) {
+                if (testData[i].elapsed > 0) sampledRT.push(testData[i].elapsed);
+            }
+            
+            if (sampledRT.length === 0) return;
+            
+            let maxRT = 0;
+            for (let i = 0; i < sampledRT.length; i++) {
+                if (sampledRT[i] > maxRT) maxRT = sampledRT[i];
+            }
+            
+            const bucketCount = Math.min(50, Math.ceil(Math.sqrt(sampledRT.length)));
+            const bucketSize = Math.ceil(maxRT / bucketCount);
+            
+            const buckets = new Array(bucketCount).fill(0);
+            for (let i = 0; i < sampledRT.length; i++) {
+                const idx = Math.min(Math.floor(sampledRT[i] / bucketSize), bucketCount - 1);
+                buckets[idx]++;
+            }
+            
+            charts.distribution = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: buckets.map((_, i) => `${i * bucketSize}-${(i + 1) * bucketSize}ms`),
+                    datasets: [{
+                        label: 'Frequency',
+                        data: buckets,
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: getChartOptions()
+            });
+        }
+
+        function createHeatmapChart() {
+            const ctx = document.getElementById('heatmapChart').getContext('2d');
+            const sampleData = testData.slice(0, Math.min(1000, testData.length));
+            const startTime = sampleData[0].timestamp;
+            
+            const heatmapData = sampleData.map(record => ({
+                x: (record.timestamp - startTime) / 1000,
+                y: record.elapsed,
+                r: 3
+            }));
+            
+            charts.heatmap = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Response Times',
+                        data: heatmapData,
+                        backgroundColor: heatmapData.map(p => {
+                            if (p.y < 100) return 'rgba(16, 185, 129, 0.6)';
+                            if (p.y < 500) return 'rgba(59, 130, 246, 0.6)';
+                            if (p.y < 1000) return 'rgba(245, 158, 11, 0.6)';
+                            return 'rgba(239, 68, 68, 0.6)';
+                        })
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Time (s)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { title: { display: true, text: 'Response Time (ms)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function createThroughputDistributionChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('throughputDistributionChart').getContext('2d');
+            charts.throughputDist = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Throughput',
+                        data: chartData.timelineData.map(d => d.throughput),
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createRequestsPerMinuteChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('requestsPerMinuteChart').getContext('2d');
+            const requestsPerMin = [];
+            for (let i = 0; i < chartData.timelineData.length; i += 12) {
+                const slice = chartData.timelineData.slice(i, i + 12);
+                requestsPerMin.push(slice.reduce((sum, d) => sum + d.count, 0));
+            }
+            
+            charts.reqPerMin = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: requestsPerMin.map((_, i) => `Min ${i + 1}`),
+                    datasets: [{
+                        label: 'Requests/Minute',
+                        data: requestsPerMin,
+                        backgroundColor: '#8b5cf6'
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createNetworkBreakdownChart() {
+            if (!networkMetrics) return;
+            const ctx = document.getElementById('networkBreakdownChart').getContext('2d');
+            charts.networkBreakdown = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Connect Time', 'Latency', 'Processing Time'],
+                    datasets: [{
+                        label: 'Average (ms)',
+                        data: [
+                            networkMetrics.connect.avg,
+                            networkMetrics.latency.avg,
+                            parseFloat(document.getElementById('avgResponse').textContent) - networkMetrics.latency.avg
+                        ],
+                        backgroundColor: ['#06b6d4', '#8b5cf6', '#10b981']
+                    }]
+                },
+                options: getChartOptions()
+            });
+        }
+
+        function createLatencyTimelineChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('latencyTimelineChart').getContext('2d');
+            charts.latencyTimeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Latency',
+                        data: chartData.timelineData.map(d => d.avgLatency),
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createConnectTimeChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('connectTimeChart').getContext('2d');
+            charts.connectTime = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Connect Time',
+                        data: chartData.timelineData.map(d => d.avgConnect),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createBytesChart() {
+            if (!chartData) return;
+            const ctx = document.getElementById('bytesChart').getContext('2d');
+            charts.bytes = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timelineData.map((_, i) => `${i * 5}s`),
+                    datasets: [{
+                        label: 'Bytes Received',
+                        data: chartData.timelineData.map(d => d.bytes),
+                        borderColor: '#10b981',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Bytes Sent',
+                        data: chartData.timelineData.map(d => d.sentBytes),
+                        borderColor: '#3b82f6',
+                        yAxisID: 'y'
+                    }]
+                },
+                options: getChartOptions(true)
+            });
+        }
+
+        function createLatencyDistributionChart() {
+            const ctx = document.getElementById('latencyDistributionChart').getContext('2d');
+            
+            // Sample data to avoid memory issues
+            const sampleSize = Math.min(10000, testData.length);
+            const step = Math.ceil(testData.length / sampleSize);
+            const sampledLat = [];
+            
+            for (let i = 0; i < testData.length; i += step) {
+                if (testData[i].Latency > 0) sampledLat.push(testData[i].Latency);
+            }
+            
+            if (sampledLat.length === 0) return;
+            
+            let maxLat = 0;
+            for (let i = 0; i < sampledLat.length; i++) {
+                if (sampledLat[i] > maxLat) maxLat = sampledLat[i];
+            }
+            
+            const bucketCount = Math.min(30, Math.ceil(Math.sqrt(sampledLat.length)));
+            const bucketSize = Math.ceil(maxLat / bucketCount);
+            
+            const buckets = new Array(bucketCount).fill(0);
+            for (let i = 0; i < sampledLat.length; i++) {
+                const idx = Math.min(Math.floor(sampledLat[i] / bucketSize), bucketCount - 1);
+                buckets[idx]++;
+            }
+            
+            charts.latencyDist = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: buckets.map((_, i) => `${i * bucketSize}-${(i + 1) * bucketSize}ms`),
+                    datasets: [{
+                        label: 'Frequency',
+                        data: buckets,
+                        backgroundColor: '#06b6d4'
+                    }]
+                },
+                options: getChartOptions()
+            });
+        }
+
+        function createResponseVsLatencyChart() {
+            const ctx = document.getElementById('responseVsLatencyChart').getContext('2d');
+            const sampleData = testData.slice(0, Math.min(1000, testData.length));
+            
+            charts.responseVsLatency = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Response vs Latency',
+                        data: sampleData.map(d => ({ x: d.Latency, y: d.elapsed })),
+                        backgroundColor: 'rgba(6, 182, 212, 0.5)',
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Latency (ms)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { title: { display: true, text: 'Response Time (ms)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateNetworkMetricsTable() {
+            if (!networkMetrics) return;
+            const tbody = document.getElementById('networkMetricsTable');
+            tbody.innerHTML = `
+                <tr>
+                    <td>Latency</td>
+                    <td>${networkMetrics.latency.min.toFixed(2)}</td>
+                    <td>${networkMetrics.latency.avg.toFixed(2)}</td>
+                    <td>${networkMetrics.latency.p95.toFixed(2)}</td>
+                    <td>${networkMetrics.latency.max.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>Connect Time</td>
+                    <td>${networkMetrics.connect.min.toFixed(2)}</td>
+                    <td>${networkMetrics.connect.avg.toFixed(2)}</td>
+                    <td>${networkMetrics.connect.p95.toFixed(2)}</td>
+                    <td>${networkMetrics.connect.max.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+
+        function analyzeErrors(data) {
+            const errors = {};
+            data.filter(d => !d.success).forEach(d => {
+                const key = `${d.responseCode}: ${d.responseMessage.substring(0, 100)}`;
+                errors[key] = (errors[key] || 0) + 1;
+            });
+            
+            const errorDetailsDiv = document.getElementById('errorDetailsContent');
+            if (Object.keys(errors).length === 0) {
+                errorDetailsDiv.innerHTML = '<div class="no-data"><div class="no-data-icon">✓</div><div>No errors detected</div></div>';
+                return;
+            }
+            
+            errorDetailsDiv.innerHTML = '';
+            Object.entries(errors).sort((a, b) => b[1] - a[1]).forEach(([err, count]) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'background: #991b1b; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ef4444;';
+                div.innerHTML = `<strong>${err}</strong><br><span style="color: #fca5a5;">Count: ${count} (${((count / data.length) * 100).toFixed(2)}%)</span>`;
+                errorDetailsDiv.appendChild(div);
+            });
+        }
+
+        function updatePercentileTable(percentiles) {
+            const tbody = document.getElementById('percentileTable');
+            const slaThresholds = {
+  min: 0,       // minimum observed or placeholder
+  p50: 4000,    // median
+  p75: 5500,    // 75th percentile
+  p90: 6500,    // ≤ SLA p90
+  p95: 8000,    // ≤ SLA p95
+  p99: 11000,   // ≤ SLA p99
+  max: 15000    // aligns with p99.9 / timeout
+};
+
+            
+            tbody.innerHTML = Object.entries(percentiles).map(([key, value]) => {
+                const threshold = slaThresholds[key];
+                const meetsSLA = value <= threshold;
+                const status = meetsSLA 
+                    ? '<span style="color:#10b981">✓ Within SLA</span>' 
+                    : `<span style="color:#ef4444">✗ Exceeds by ${Math.round(value - threshold)}ms</span>`;
+                
+                return `<tr>
+                    <td>${key.toUpperCase()}</td>
+                    <td>${Math.round(value)} ms</td>
+                    <td>${status}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function generateInsights(metrics) {
+            let html = '<div class="insight-section"><h3>1. Overall Performance</h3>';
+            
+            let status, statusClass;
+            if (metrics.successRate >= 99.5 && metrics.avg <= 500) {
+                status = 'EXCELLENT';
+                statusClass = 'status-excellent';
+                html += '<p>Outstanding performance with excellent response times and high reliability.</p>';
+            } else if (metrics.successRate >= 98 && metrics.avg <= 1000) {
+                status = 'GOOD';
+                statusClass = 'status-good';
+                html += '<p>Good performance with acceptable response times.</p>';
+            } else if (metrics.successRate >= 95 && metrics.avg <= 2000) {
+                status = 'FAIR';
+                statusClass = 'status-fair';
+                html += '<p>Fair performance with room for improvement.</p>';
+            } else {
+                status = 'POOR';
+                statusClass = 'status-poor';
+                html += '<p>Performance issues detected. Immediate attention required.</p>';
+            }
+            
+            html += `<span class="status-badge ${statusClass}">${status}</span></div>`;
+            
+            html += `<div class="insight-section"><h3>2. Network Analysis</h3><ul>`;
+            html += `<li>Average Latency: ${metrics.avgLatency}ms - Network round-trip time</li>`;
+            html += `<li>Average Connect Time: ${metrics.avgConnect}ms - Time to establish connection</li>`;
+            
+            const processingTime = metrics.avg - metrics.avgLatency;
+            html += `<li>Server Processing Time: ~${Math.round(processingTime)}ms</li>`;
+            
+            if (metrics.avgConnect > 100) {
+                html += '<li style="color:#ef4444">High connection time detected - consider connection pooling or CDN</li>';
+            }
+            if (metrics.avgLatency > 200) {
+                html += '<li style="color:#f59e0b">High network latency - check network infrastructure and server location</li>';
+            }
+            
+            html += '</ul></div>';
+            
+            html += `<div class="insight-section"><h3>3. Key Recommendations</h3><ul>`;
+            
+            if (metrics.percentiles.p95 > 2000) {
+                html += '<li>P95 response time exceeds 2s - optimize slow queries and database operations</li>';
+            }
+            if (metrics.errorRate > 1) {
+                html += '<li>Error rate above 1% - investigate root causes and implement retry mechanisms</li>';
+            }
+            if (metrics.throughput < 10) {
+                html += '<li>Low throughput detected - consider scaling infrastructure or optimizing application code</li>';
+            }
+            
+            html += '</ul></div>';
+            
+            document.getElementById('insightsContent').innerHTML = html;
+        }
+
+        function getChartOptions(showTime = false, dualAxis = false) {
+            const opts = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false, labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { grid: { color: '#334155', drawBorder: false }, ticks: { color: '#94a3b8', maxRotation: 45 } },
+                    y: { grid: { color: '#334155', drawBorder: false }, ticks: { color: '#94a3b8' }, beginAtZero: true }
+                }
+            };
+            
+            if (showTime) opts.scales.x.title = { display: true, text: 'Time', color: '#94a3b8' };
+            
+            if (dualAxis) {
+                opts.scales.y1 = {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#3b82f6' },
+                    beginAtZero: true
+                };
+            }
+            
+            return opts;
+        }
+    </script>
+</body>
+</html>
